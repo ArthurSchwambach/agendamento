@@ -54,6 +54,16 @@
       background-color: #555;
       cursor: not-allowed;
     }
+    button.horario-disponivel {
+      background-color: #2e7d32; /* Verde mais forte */
+    }
+    button.horario-disponivel:hover {
+      background-color: #1b5e20; /* Verde mais escuro no hover */
+    }
+    button.horario-reservado {
+      background-color: #c62828; /* Vermelho escuro */
+      color: #ffffff; /* Texto branco */
+    }
     input, select {
       width: 100%;
       padding: 0.75rem;
@@ -86,14 +96,12 @@
       right: 0.75rem;
       width: 20px;
       height: 20px;
-      background: transparent;
-      color: transparent;
       background: #3a5a78;
-  color: white;
-  display: flex;
-  justify-content: center;
-  align-items: center;
-  border-radius: 50%;
+      color: white;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      border-radius: 50%;
       cursor: pointer;
     }
     section {
@@ -125,8 +133,33 @@
       left: 0;
       right: 0;
       bottom: 0;
-      background-color: rgba(0, 0, 0, 0.7);
+      background-color: rgba(0, 0, 0, 0.85); /* Fundo mais escuro */
       z-index: 99;
+    }
+    .info-reserva {
+      margin-bottom: 1rem;
+    }
+    .info-reserva p {
+      margin: 0.5rem 0;
+    }
+    .mensagem-flutuante {
+      position: fixed;
+      top: 20px;
+      left: 50%;
+      transform: translateX(-50%);
+      background-color: #2e7d32;
+      color: white;
+      padding: 12px 24px;
+      border-radius: 4px;
+      box-shadow: 0 2px 10px rgba(0,0,0,0.2);
+      z-index: 1000;
+      animation: fadeInOut 3s ease-in-out;
+    }
+    @keyframes fadeInOut {
+      0% { opacity: 0; top: 0; }
+      10% { opacity: 1; top: 20px; }
+      90% { opacity: 1; top: 20px; }
+      100% { opacity: 0; top: 0; }
     }
   </style>
 </head>
@@ -136,15 +169,15 @@
     <section id="pagina-inicial">
       <h1>Agendamento</h1>
       <button onclick="mostrarPagina('horarios')">Ver Horários</button>
-      <button onclick="carregarMinhasReservas()">Minhas Reservas</button>
-      <div id="admin-button" onclick="mostrarLoginAdmin()">.</div>
+      <button onclick="mostrarPagina('minhas-reservas')">Minhas Reservas</button>
+      <div id="admin-button" onclick="mostrarLoginAdmin()">A</div>
     </section>
 
     <!-- Modal Login Admin -->
     <div id="admin-login" class="modal hidden">
       <h2>Login Administrador</h2>
-      <input type="text" id="admin-user" placeholder="Usuário">
-      <input type="password" id="admin-pass" placeholder="Senha">
+      <input type="text" id="admin-user" placeholder="Usuário" value="admin">
+      <input type="password" id="admin-pass" placeholder="Senha" value="admin">
       <button onclick="loginAdmin()">Entrar</button>
       <button onclick="fecharModal()">Cancelar</button>
     </div>
@@ -152,9 +185,9 @@
     <!-- Modal Reserva -->
     <div id="reserva-modal" class="modal hidden">
       <h2 id="reserva-modal-titulo">Reservar Horário</h2>
-      <input type="text" id="cliente-nome" placeholder="Seu Nome">
-      <input type="tel" id="cliente-telefone" placeholder="Seu Telefone">
-      <select id="forma-pagamento">
+      <input type="text" id="cliente-nome" placeholder="Seu Nome" required>
+      <input type="tel" id="cliente-telefone" placeholder="Seu Telefone" required>
+      <select id="forma-pagamento" required>
         <option value="">Forma de Pagamento</option>
         <option value="PIX">PIX</option>
         <option value="Cartão">Cartão</option>
@@ -167,10 +200,29 @@
     <!-- Modal Info Reserva (Admin) -->
     <div id="info-reserva-modal" class="modal hidden">
       <h2>Informações da Reserva</h2>
-      <p><strong>Nome:</strong> <span id="info-nome"></span></p>
-      <p><strong>Telefone:</strong> <span id="info-telefone"></span></p>
-      <p><strong>Pagamento:</strong> <span id="info-pagamento"></span></p>
-      <button onclick="cancelarReservaAdmin()">Cancelar Reserva</button>
+      <div class="info-reserva">
+        <p><strong>Data:</strong> <span id="info-data"></span></p>
+        <p><strong>Horário:</strong> <span id="info-horario"></span></p>
+        <p><strong>Nome:</strong> <span id="info-nome"></span></p>
+        <p><strong>Telefone:</strong> <span id="info-telefone"></span></p>
+        <p><strong>Pagamento:</strong> <span id="info-pagamento"></span></p>
+      </div>
+      <button onclick="cancelarReservaAdmin()" style="background-color: #d32f2f;">Excluir Reserva</button>
+      <button onclick="fecharModal()">Fechar</button>
+    </div>
+
+    <!-- Modal Confirmação -->
+    <div id="confirmacao-modal" class="modal hidden">
+      <h2 id="confirmacao-titulo">Confirmar Ação</h2>
+      <p id="confirmacao-mensagem"></p>
+      <button onclick="confirmarAcao()" id="confirmacao-botao">Confirmar</button>
+      <button onclick="fecharModal()">Cancelar</button>
+    </div>
+
+    <!-- Modal Mensagem -->
+    <div id="mensagem-modal" class="modal hidden">
+      <h2 id="mensagem-titulo">Mensagem</h2>
+      <p id="mensagem-conteudo"></p>
       <button onclick="fecharModal()">Fechar</button>
     </div>
 
@@ -209,8 +261,12 @@
         <input type="text" id="data-criacao-input" placeholder="Selecione uma data">
       </div>
       <div id="botoes-horarios" class="horarios-container"></div>
-      <button onclick="marcarTodosHorarios()">Marcar Tudo</button>
-      <button onclick="salvarHorarios()">Salvar Horários</button>
+      <div style="display: flex; gap: 0.5rem;">
+        <button onclick="marcarTodosHorarios()" style="flex: 1;">Marcar Tudo</button>
+        <button onclick="preencherSemana()" style="flex: 1;">Preencher Semana</button>
+      </div>
+      <button onclick="salvarHorarios()" class="horario-disponivel">Salvar Horários</button>
+      <button onclick="limparDia()" style="background-color: #d32f2f;">Limpar Todos Horários</button>
       <button onclick="mostrarPagina('admin')">Voltar</button>
     </section>
   </div>
@@ -224,14 +280,14 @@
   <script>
     // Configuração do Firebase
     const firebaseConfig = {
-  apiKey: "AIzaSyBnl2p5jBap04iXUdyL2Uko9dxGUy5Tpko",
-  authDomain: "agendamento-ae896.firebaseapp.com",
-  projectId: "agendamento-ae896",
-  storageBucket: "agendamento-ae896.firebasestorage.app",
-  messagingSenderId: "755996309787",
-  appId: "1:755996309787:web:3b4be84dd07512c829fbbe",
-  measurementId: "G-M0X48MH74Z"
-};
+      apiKey: "AIzaSyBnl2p5jBap04iXUdyL2Uko9dxGUy5Tpko",
+      authDomain: "agendamento-ae896.firebaseapp.com",
+      projectId: "agendamento-ae896",
+      storageBucket: "agendamento-ae896.appspot.com",
+      messagingSenderId: "755996309787",
+      appId: "1:755996309787:web:3b4be84dd07512c829fbbe",
+      measurementId: "G-M0X48MH74Z"
+    };
 
     // Inicializa o Firebase
     firebase.initializeApp(firebaseConfig);
@@ -243,6 +299,8 @@
     let currentUser = null;
     let reservaAtual = null;
     let modoAdmin = false;
+    let calendarioInput, calendarioAdminInput, dataCriacaoInput;
+    let acaoConfirmacao = null;
 
     // Inicialização
     document.addEventListener('DOMContentLoaded', function() {
@@ -250,37 +308,98 @@
       currentUser = localStorage.getItem('agendamento_user') || generateUserId();
       localStorage.setItem('agendamento_user', currentUser);
       
-      // Inicializa os calendários
-      flatpickr("#calendario-input", {
+      // Configuração comum para os calendários
+      const commonConfig = {
         locale: "pt",
         minDate: "today",
         dateFormat: "d/m/Y",
+        defaultDate: new Date(), // Mostra o dia atual por padrão
+        onChange: function(selectedDates, dateStr, instance) {
+          selectedDate = formatFirestoreDate(selectedDates[0]);
+          resetarPagina();
+        }
+      };
+
+      // Inicializa os calendários
+      calendarioInput = flatpickr("#calendario-input", {
+        ...commonConfig,
         onChange: function(selectedDates, dateStr, instance) {
           selectedDate = formatFirestoreDate(selectedDates[0]);
           carregarHorariosDisponiveis();
         }
       });
 
-      flatpickr("#calendario-admin-input", {
-        locale: "pt",
-        minDate: "today",
-        dateFormat: "d/m/Y",
+      calendarioAdminInput = flatpickr("#calendario-admin-input", {
+        ...commonConfig,
         onChange: function(selectedDates, dateStr, instance) {
           selectedDate = formatFirestoreDate(selectedDates[0]);
           carregarHorariosAdmin();
         }
       });
 
-      flatpickr("#data-criacao-input", {
-        locale: "pt",
-        minDate: "today",
-        dateFormat: "d/m/Y",
+      dataCriacaoInput = flatpickr("#data-criacao-input", {
+        ...commonConfig,
         onChange: function(selectedDates, dateStr, instance) {
           selectedDate = formatFirestoreDate(selectedDates[0]);
           criarBotoesHorarios();
         }
       });
+
+      // Carrega automaticamente o dia atual
+      selectedDate = formatFirestoreDate(new Date());
+      
+      // Se estiver na página de horários, carrega automaticamente
+      if (window.location.hash === '#horarios') {
+        mostrarPagina('horarios');
+        carregarHorariosDisponiveis();
+      }
     });
+
+    function mostrarMensagem(titulo, mensagem) {
+      document.getElementById('mensagem-titulo').textContent = titulo;
+      document.getElementById('mensagem-conteudo').textContent = mensagem;
+      document.getElementById('mensagem-modal').classList.remove('hidden');
+      document.body.insertAdjacentHTML('beforeend', '<div class="overlay"></div>');
+    }
+
+    function mostrarConfirmacao(titulo, mensagem, acao) {
+      document.getElementById('confirmacao-titulo').textContent = titulo;
+      document.getElementById('confirmacao-mensagem').textContent = mensagem;
+      document.getElementById('confirmacao-botao').textContent = titulo;
+      acaoConfirmacao = acao;
+      document.getElementById('confirmacao-modal').classList.remove('hidden');
+      document.body.insertAdjacentHTML('beforeend', '<div class="overlay"></div>');
+    }
+
+    function confirmarAcao() {
+      if (acaoConfirmacao) {
+        acaoConfirmacao();
+      }
+      fecharModal();
+    }
+
+    function mostrarMensagemFlutuante(mensagem) {
+      const div = document.createElement('div');
+      div.className = 'mensagem-flutuante';
+      div.textContent = mensagem;
+      document.body.appendChild(div);
+      
+      setTimeout(() => {
+        div.remove();
+      }, 3000);
+    }
+
+    function resetarPagina() {
+      const paginaAtual = document.querySelector('section:not(.hidden)').id;
+      
+      if (paginaAtual === 'pagina-horarios') {
+        carregarHorariosDisponiveis();
+      } else if (paginaAtual === 'pagina-admin') {
+        carregarHorariosAdmin();
+      } else if (paginaAtual === 'pagina-admin-criar') {
+        criarBotoesHorarios();
+      }
+    }
 
     // Funções de navegação
     function mostrarPagina(pagina) {
@@ -290,17 +409,28 @@
       document.getElementById('pagina-admin').classList.add('hidden');
       document.getElementById('pagina-admin-criar').classList.add('hidden');
 
+      // Reseta os calendários para a data atual
+      const hoje = new Date();
+      selectedDate = formatFirestoreDate(hoje);
+      
       if (pagina === 'inicial') {
         document.getElementById('pagina-inicial').classList.remove('hidden');
       } else if (pagina === 'horarios') {
+        calendarioInput.setDate(hoje);
         document.getElementById('pagina-horarios').classList.remove('hidden');
+        carregarHorariosDisponiveis();
       } else if (pagina === 'minhas-reservas') {
         document.getElementById('pagina-minhas-reservas').classList.remove('hidden');
+        carregarMinhasReservas();
       } else if (pagina === 'admin') {
         modoAdmin = true;
+        calendarioAdminInput.setDate(hoje);
         document.getElementById('pagina-admin').classList.remove('hidden');
+        carregarHorariosAdmin();
       } else if (pagina === 'admin-criar') {
+        dataCriacaoInput.setDate(hoje);
         document.getElementById('pagina-admin-criar').classList.remove('hidden');
+        criarBotoesHorarios();
       }
     }
 
@@ -313,11 +443,21 @@
       const user = document.getElementById('admin-user').value;
       const pass = document.getElementById('admin-pass').value;
 
-      if (user === 'admin' && pass === 'admin') {
+      // Credenciais válidas (pode adicionar mais se necessário)
+      const credenciaisValidas = [
+        { usuario: 'admin', senha: 'admin' },
+        { usuario: 'adm', senha: 'adm' }
+      ];
+
+      const credencialValida = credenciaisValidas.some(
+        cred => cred.usuario === user && cred.senha === pass
+      );
+
+      if (credencialValida) {
         fecharModal();
         mostrarPagina('admin');
       } else {
-        alert('Login inválido.');
+        mostrarMensagem('Login inválido', 'Usuário ou senha incorretos.');
       }
     }
 
@@ -350,6 +490,12 @@
       return timeStr.replace(':00', 'h');
     }
 
+    function addDays(date, days) {
+      const result = new Date(date);
+      result.setDate(result.getDate() + days);
+      return result;
+    }
+
     // Funções para horários disponíveis
     async function carregarHorariosDisponiveis() {
       if (!selectedDate) return;
@@ -368,20 +514,28 @@
         const horariosData = snapshot.data();
         horariosDiv.innerHTML = '';
         
-        Object.keys(horariosData).sort().forEach(time => {
-          const btn = document.createElement('button');
-          btn.className = 'horario-btn';
-          btn.textContent = formatTimeDisplay(time);
-          
-          if (horariosData[time].reservado) {
-            btn.textContent += ' (Reservado)';
-            btn.classList.add('disabled');
-            btn.onclick = () => alert('Este horário já está reservado.');
-          } else {
-            btn.onclick = () => abrirModalReserva(time);
+        // Ordem personalizada dos horários (agora agrupados corretamente)
+        const horariosManha = ['08:00', '09:00', '10:00', '11:00'];
+        const horariosTarde = ['13:00', '14:00', '15:00', '16:00', '17:00', '18:00'];
+        const horariosOrdenados = [...horariosManha, ...horariosTarde];
+        
+        horariosOrdenados.forEach(time => {
+          if (horariosData[time] !== undefined) {
+            const btn = document.createElement('button');
+            btn.className = 'horario-btn';
+            
+            if (horariosData[time].reservado) {
+              btn.textContent = `${formatTimeDisplay(time)} (Reservado)`;
+              btn.classList.add('horario-reservado');
+              btn.onclick = () => mostrarMensagem('Horário Reservado', 'Este horário já está reservado.');
+            } else {
+              btn.textContent = formatTimeDisplay(time);
+              btn.classList.add('horario-disponivel');
+              btn.onclick = () => abrirModalReserva(time);
+            }
+            
+            horariosDiv.appendChild(btn);
           }
-          
-          horariosDiv.appendChild(btn);
         });
       } catch (error) {
         console.error("Erro ao carregar horários:", error);
@@ -401,51 +555,73 @@
       const pagamento = document.getElementById('forma-pagamento').value;
       
       if (!nome || !telefone || !pagamento) {
-        alert('Por favor, preencha todos os campos.');
+        mostrarMensagem('Campos obrigatórios', 'Por favor, preencha todos os campos.');
         return;
       }
       
       try {
+        // Primeiro verifica se o horário ainda está disponível
+        const docRef = await db.collection('horarios').doc(selectedDate).get();
+        if (!docRef.exists || docRef.data()[selectedTime].reservado) {
+          mostrarMensagem('Horário ocupado', 'Este horário já foi reservado por outra pessoa.');
+          carregarHorariosDisponiveis();
+          fecharModal();
+          return;
+        }
+        
+        // Atualiza o horário como reservado
         await db.collection('horarios').doc(selectedDate).update({
           [selectedTime]: {
             reservado: true,
             clienteId: currentUser,
             nome: nome,
             telefone: telefone,
-            pagamento: pagamento
+            pagamento: pagamento,
+            dataReserva: new Date().toISOString()
           }
         });
         
+        // Envia mensagem para o WhatsApp
+        const mensagemWhatsApp = `Nova reserva:\n\nData: ${formatDisplayDate(selectedDate)}\nHorário: ${formatTimeDisplay(selectedTime)}\nCliente: ${nome}\nTelefone: ${telefone}\nPagamento: ${pagamento}`;
+        const urlWhatsApp = `https://wa.me/5527997563197?text=${encodeURIComponent(mensagemWhatsApp)}`;
+        
+        // Abre o WhatsApp em uma nova aba
+        window.open(urlWhatsApp, '_blank');
+        
         fecharModal();
-        alert('Reserva confirmada com sucesso!');
+        mostrarMensagemFlutuante('Reserva confirmada com sucesso!');
         carregarHorariosDisponiveis();
       } catch (error) {
         console.error("Erro ao confirmar reserva:", error);
-        alert('Erro ao confirmar reserva. Tente novamente.');
+        mostrarMensagem('Erro', 'Erro ao confirmar reserva. Tente novamente.');
       }
     }
 
     // Funções para minhas reservas
     async function carregarMinhasReservas() {
-      mostrarPagina('minhas-reservas');
       const listaReservas = document.getElementById('lista-reservas');
       listaReservas.innerHTML = '<p>Carregando suas reservas...</p>';
       
       try {
-        const snapshot = await db.collection('horarios')
-          .where(`clienteId`, '==', currentUser)
-          .get();
+        // Primeiro obtemos todas as datas que têm horários
+        const snapshotDatas = await db.collection('horarios').get();
         
-        if (snapshot.empty) {
+        if (snapshotDatas.empty) {
           listaReservas.innerHTML = '<p>Você não tem reservas.</p>';
           return;
         }
         
+        let reservasEncontradas = false;
         listaReservas.innerHTML = '';
-        snapshot.forEach(doc => {
+        
+        // Para cada documento (data) no Firestore
+        for (const doc of snapshotDatas.docs) {
           const data = doc.data();
-          Object.keys(data).forEach(time => {
+          
+          // Verifica cada horário nesta data
+          for (const time in data) {
             if (data[time].reservado && data[time].clienteId === currentUser) {
+              reservasEncontradas = true;
               const reservaDiv = document.createElement('div');
               reservaDiv.className = 'reserva-item';
               reservaDiv.innerHTML = `
@@ -453,11 +629,21 @@
                 <p><strong>Horário:</strong> ${formatTimeDisplay(time)}</p>
                 <p><strong>Pagamento:</strong> ${data[time].pagamento}</p>
               `;
-              reservaDiv.onclick = () => cancelarReserva(doc.id, time);
+              reservaDiv.onclick = () => {
+                mostrarConfirmacao(
+                  'Cancelar Reserva',
+                  `Deseja cancelar a reserva para ${formatDisplayDate(doc.id)} às ${formatTimeDisplay(time)}?`,
+                  () => cancelarReserva(doc.id, time)
+                );
+              };
               listaReservas.appendChild(reservaDiv);
             }
-          });
-        });
+          }
+        }
+        
+        if (!reservasEncontradas) {
+          listaReservas.innerHTML = '<p>Você não tem reservas.</p>';
+        }
       } catch (error) {
         console.error("Erro ao carregar reservas:", error);
         listaReservas.innerHTML = '<p>Erro ao carregar suas reservas.</p>';
@@ -465,9 +651,16 @@
     }
 
     async function cancelarReserva(date, time) {
-      if (!confirm('Deseja realmente cancelar esta reserva?')) return;
-      
       try {
+        // Primeiro verifica se a reserva ainda existe e pertence ao usuário
+        const docRef = await db.collection('horarios').doc(date).get();
+        if (!docRef.exists || !docRef.data()[time] || !docRef.data()[time].reservado || docRef.data()[time].clienteId !== currentUser) {
+          mostrarMensagem('Reserva não encontrada', 'Esta reserva não existe ou já foi cancelada.');
+          carregarMinhasReservas();
+          return;
+        }
+        
+        // Cancela a reserva
         await db.collection('horarios').doc(date).update({
           [time]: {
             reservado: false,
@@ -478,11 +671,11 @@
           }
         });
         
-        alert('Reserva cancelada com sucesso!');
+        mostrarMensagemFlutuante('Reserva cancelada com sucesso!');
         carregarMinhasReservas();
       } catch (error) {
         console.error("Erro ao cancelar reserva:", error);
-        alert('Erro ao cancelar reserva. Tente novamente.');
+        mostrarMensagem('Erro', 'Erro ao cancelar reserva. Tente novamente.');
       }
     }
 
@@ -504,20 +697,35 @@
         const horariosData = snapshot.data();
         horariosDiv.innerHTML = '';
         
-        Object.keys(horariosData).sort().forEach(time => {
-          const btn = document.createElement('button');
-          btn.className = 'horario-btn';
-          btn.textContent = formatTimeDisplay(time);
-          
-          if (horariosData[time].reservado) {
-            btn.textContent += ' (Reservado)';
-            btn.onclick = () => mostrarInfoReserva(horariosData[time]);
-          } else {
-            btn.textContent += ' (Disponível)';
-            btn.onclick = () => cancelarReservaAdmin(selectedDate, time);
+        // Ordem personalizada dos horários (agora agrupados corretamente)
+        const horariosManha = ['08:00', '09:00', '10:00', '11:00'];
+        const horariosTarde = ['13:00', '14:00', '15:00', '16:00', '17:00', '18:00'];
+        const horariosOrdenados = [...horariosManha, ...horariosTarde];
+        
+        horariosOrdenados.forEach(time => {
+          if (horariosData[time] !== undefined) {
+            const btn = document.createElement('button');
+            btn.className = 'horario-btn';
+            
+            if (horariosData[time].reservado) {
+              btn.textContent = `${formatTimeDisplay(time)} (Reservado)`;
+              btn.classList.add('horario-reservado');
+              btn.onclick = () => mostrarInfoReservaAdmin(horariosData[time], time);
+            } else {
+              btn.textContent = `${formatTimeDisplay(time)} (Disponível)`;
+              btn.classList.add('horario-disponivel');
+              btn.onclick = () => {
+                selectedTime = time;
+                mostrarConfirmacao(
+                  'Cancelar Horário',
+                  `Deseja remover o horário ${formatTimeDisplay(time)}?`,
+                  () => cancelarReservaAdmin()
+                );
+              };
+            }
+            
+            horariosDiv.appendChild(btn);
           }
-          
-          horariosDiv.appendChild(btn);
         });
       } catch (error) {
         console.error("Erro ao carregar horários:", error);
@@ -525,18 +733,19 @@
       }
     }
 
-    function mostrarInfoReserva(reserva) {
+    function mostrarInfoReservaAdmin(reserva, time) {
+      document.getElementById('info-data').textContent = formatDisplayDate(selectedDate);
+      document.getElementById('info-horario').textContent = formatTimeDisplay(time);
       document.getElementById('info-nome').textContent = reserva.nome;
       document.getElementById('info-telefone').textContent = reserva.telefone;
       document.getElementById('info-pagamento').textContent = reserva.pagamento;
       reservaAtual = reserva;
+      selectedTime = time;
       document.getElementById('info-reserva-modal').classList.remove('hidden');
       document.body.insertAdjacentHTML('beforeend', '<div class="overlay"></div>');
     }
 
     async function cancelarReservaAdmin() {
-      if (!confirm('Deseja realmente cancelar esta reserva?')) return;
-      
       try {
         await db.collection('horarios').doc(selectedDate).update({
           [selectedTime]: {
@@ -548,12 +757,15 @@
           }
         });
         
-        fecharModal();
-        alert('Reserva cancelada com sucesso!');
+        if (document.getElementById('info-reserva-modal').classList.contains('hidden')) {
+          mostrarMensagemFlutuante('Horário liberado com sucesso!');
+        } else {
+          fecharModal();
+        }
         carregarHorariosAdmin();
       } catch (error) {
         console.error("Erro ao cancelar reserva:", error);
-        alert('Erro ao cancelar reserva. Tente novamente.');
+        mostrarMensagem('Erro', 'Erro ao liberar horário. Tente novamente.');
       }
     }
 
@@ -564,42 +776,109 @@
       const botoesDiv = document.getElementById('botoes-horarios');
       botoesDiv.innerHTML = '';
       
-      // Horários da manhã (8h-11h)
-      for (let i = 8; i <= 11; i++) {
-        const btn = document.createElement('button');
-        btn.className = 'horario-btn';
-        btn.textContent = `${i}:00`;
-        btn.dataset.time = `${i}:00`;
-        btn.onclick = () => toggleHorarioSelecionado(btn);
-        botoesDiv.appendChild(btn);
-      }
+      // Horários na ordem específica (agrupados corretamente)
+      const horariosManha = ['08:00', '09:00', '10:00', '11:00'];
+      const horariosTarde = ['13:00', '14:00', '15:00', '16:00', '17:00', '18:00'];
+      const horariosOrdenados = [...horariosManha, ...horariosTarde];
       
-      // Horários da tarde (13h-18h)
-      for (let i = 13; i <= 18; i++) {
+      horariosOrdenados.forEach(time => {
         const btn = document.createElement('button');
         btn.className = 'horario-btn';
-        btn.textContent = `${i}:00`;
-        btn.dataset.time = `${i}:00`;
+        btn.textContent = formatTimeDisplay(time);
+        btn.dataset.time = time;
+        btn.dataset.selected = 'false';
+        btn.classList.add('disabled');
         btn.onclick = () => toggleHorarioSelecionado(btn);
         botoesDiv.appendChild(btn);
-      }
+      });
     }
 
     function toggleHorarioSelecionado(btn) {
       btn.classList.toggle('disabled');
       btn.dataset.selected = btn.classList.contains('disabled') ? 'false' : 'true';
+      
+      // Adiciona/remove a classe de horário disponível
+      if (btn.classList.contains('disabled')) {
+        btn.classList.remove('horario-disponivel');
+      } else {
+        btn.classList.add('horario-disponivel');
+      }
     }
 
     function marcarTodosHorarios() {
       document.querySelectorAll('#botoes-horarios .horario-btn').forEach(btn => {
         btn.classList.remove('disabled');
+        btn.classList.add('horario-disponivel');
         btn.dataset.selected = 'true';
       });
     }
 
+    async function preencherSemana() {
+      if (!selectedDate) return;
+      
+      mostrarConfirmacao(
+        'Preencher Semana',
+        'Deseja criar horários para os próximos 6 dias a partir da data selecionada?',
+        async () => {
+          try {
+            const dataAtual = new Date(selectedDate);
+            const horariosSelecionados = {};
+            
+            // Pega os horários selecionados na data atual
+            document.querySelectorAll('#botoes-horarios .horario-btn[data-selected="true"]').forEach(btn => {
+              horariosSelecionados[btn.dataset.time] = {
+                reservado: false,
+                clienteId: null,
+                nome: null,
+                telefone: null,
+                pagamento: null
+              };
+            });
+            
+            if (Object.keys(horariosSelecionados).length === 0) {
+              mostrarMensagem('Aviso', 'Nenhum horário selecionado para a data atual.');
+              return;
+            }
+            
+            // Preenche os próximos 6 dias
+            for (let i = 1; i <= 6; i++) {
+              const novaData = addDays(dataAtual, i);
+              const dataStr = formatFirestoreDate(novaData);
+              
+              await db.collection('horarios').doc(dataStr).set(horariosSelecionados, { merge: true });
+            }
+            
+            mostrarMensagemFlutuante('Semana preenchida com sucesso!');
+          } catch (error) {
+            console.error("Erro ao preencher semana:", error);
+            mostrarMensagem('Erro', 'Erro ao preencher semana. Tente novamente.');
+          }
+        }
+      );
+    }
+
+    async function limparDia() {
+      if (!selectedDate) return;
+      
+      mostrarConfirmacao(
+        'Limpar Horários',
+        'Deseja remover TODOS os horários para esta data?',
+        async () => {
+          try {
+            await db.collection('horarios').doc(selectedDate).delete();
+            mostrarMensagemFlutuante('Horários removidos com sucesso!');
+            criarBotoesHorarios();
+          } catch (error) {
+            console.error("Erro ao limpar horários:", error);
+            mostrarMensagem('Erro', 'Erro ao limpar horários. Tente novamente.');
+          }
+        }
+      );
+    }
+
     async function salvarHorarios() {
       if (!selectedDate) {
-        alert('Selecione uma data primeiro.');
+        mostrarMensagem('Aviso', 'Selecione uma data primeiro.');
         return;
       }
       
@@ -615,17 +894,18 @@
       });
       
       if (Object.keys(horariosSelecionados).length === 0) {
-        alert('Selecione pelo menos um horário.');
+        mostrarMensagem('Aviso', 'Selecione pelo menos um horário.');
         return;
       }
       
       try {
         await db.collection('horarios').doc(selectedDate).set(horariosSelecionados, { merge: true });
-        alert('Horários salvos com sucesso!');
-        mostrarPagina('admin');
+        mostrarMensagemFlutuante('Horários salvos com sucesso!');
+        // Não redireciona, fica na mesma página
+        criarBotoesHorarios();
       } catch (error) {
         console.error("Erro ao salvar horários:", error);
-        alert('Erro ao salvar horários. Tente novamente.');
+        mostrarMensagem('Erro', 'Erro ao salvar horários. Tente novamente.');
       }
     }
   </script>
