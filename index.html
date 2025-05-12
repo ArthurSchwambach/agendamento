@@ -1,0 +1,633 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Agendamento</title>
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/flatpickr/dist/flatpickr.min.css">
+  <style>
+    * { 
+      box-sizing: border-box; 
+      margin: 0;
+      padding: 0;
+    }
+    body {
+      font-family: 'Segoe UI', system-ui, sans-serif;
+      background-color: #1a1a1a;
+      color: #e0e0e0;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      min-height: 100vh;
+      line-height: 1.5;
+    }
+    .container {
+      width: 100%;
+      max-width: 400px;
+      padding: 1.5rem;
+      background-color: #2d2d2d;
+      border-radius: 8px;
+      box-shadow: 0 2px 10px rgba(0, 0, 0, 0.2);
+    }
+    h1 {
+      font-size: 1.5rem;
+      font-weight: 500;
+      margin-bottom: 1.5rem;
+      color: #f0f0f0;
+    }
+    button {
+      width: 100%;
+      padding: 0.75rem;
+      margin: 0.5rem 0;
+      font-size: 1rem;
+      border: none;
+      border-radius: 6px;
+      background-color: #3a5a78;
+      color: white;
+      cursor: pointer;
+      transition: background-color 0.15s ease;
+    }
+    button:hover { 
+      background-color: #4a6b8a; 
+    }
+    button.disabled {
+      background-color: #555;
+      cursor: not-allowed;
+    }
+    input, select {
+      width: 100%;
+      padding: 0.75rem;
+      margin-bottom: 0.75rem;
+      border-radius: 6px;
+      border: 1px solid #444;
+      font-size: 1rem;
+      background-color: #333;
+      color: #e0e0e0;
+    }
+    .modal {
+      position: fixed;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      width: 90%;
+      max-width: 350px;
+      background-color: #333;
+      padding: 1.25rem;
+      border-radius: 8px;
+      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+      z-index: 100;
+    }
+    .hidden { 
+      display: none; 
+    }
+    #admin-button {
+      position: absolute;
+      bottom: 0.75rem;
+      right: 0.75rem;
+      width: 20px;
+      height: 20px;
+      background: transparent;
+      color: transparent;
+      background: #3a5a78;
+  color: white;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  border-radius: 50%;
+      cursor: pointer;
+    }
+    section {
+      padding: 0.5rem;
+    }
+    .horario-btn {
+      margin: 0.25rem;
+      width: calc(50% - 0.5rem);
+      display: inline-block;
+    }
+    .reserva-item {
+      background-color: #3a3a3a;
+      padding: 0.75rem;
+      margin: 0.5rem 0;
+      border-radius: 6px;
+      cursor: pointer;
+    }
+    .calendar {
+      margin-bottom: 1rem;
+    }
+    .horarios-container {
+      display: flex;
+      flex-wrap: wrap;
+      justify-content: space-between;
+    }
+    .overlay {
+      position: fixed;
+      top: 0;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      background-color: rgba(0, 0, 0, 0.7);
+      z-index: 99;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <!-- Página Inicial -->
+    <section id="pagina-inicial">
+      <h1>Agendamento</h1>
+      <button onclick="mostrarPagina('horarios')">Ver Horários</button>
+      <button onclick="carregarMinhasReservas()">Minhas Reservas</button>
+      <div id="admin-button" onclick="mostrarLoginAdmin()">.</div>
+    </section>
+
+    <!-- Modal Login Admin -->
+    <div id="admin-login" class="modal hidden">
+      <h2>Login Administrador</h2>
+      <input type="text" id="admin-user" placeholder="Usuário">
+      <input type="password" id="admin-pass" placeholder="Senha">
+      <button onclick="loginAdmin()">Entrar</button>
+      <button onclick="fecharModal()">Cancelar</button>
+    </div>
+
+    <!-- Modal Reserva -->
+    <div id="reserva-modal" class="modal hidden">
+      <h2 id="reserva-modal-titulo">Reservar Horário</h2>
+      <input type="text" id="cliente-nome" placeholder="Seu Nome">
+      <input type="tel" id="cliente-telefone" placeholder="Seu Telefone">
+      <select id="forma-pagamento">
+        <option value="">Forma de Pagamento</option>
+        <option value="PIX">PIX</option>
+        <option value="Cartão">Cartão</option>
+        <option value="Dinheiro">Dinheiro</option>
+      </select>
+      <button onclick="confirmarReserva()">Confirmar Reserva</button>
+      <button onclick="fecharModal()">Cancelar</button>
+    </div>
+
+    <!-- Modal Info Reserva (Admin) -->
+    <div id="info-reserva-modal" class="modal hidden">
+      <h2>Informações da Reserva</h2>
+      <p><strong>Nome:</strong> <span id="info-nome"></span></p>
+      <p><strong>Telefone:</strong> <span id="info-telefone"></span></p>
+      <p><strong>Pagamento:</strong> <span id="info-pagamento"></span></p>
+      <button onclick="cancelarReservaAdmin()">Cancelar Reserva</button>
+      <button onclick="fecharModal()">Fechar</button>
+    </div>
+
+    <!-- Página: Ver Horários -->
+    <section id="pagina-horarios" class="hidden">
+      <h1>Horários Disponíveis</h1>
+      <div class="calendar">
+        <input type="text" id="calendario-input" placeholder="Selecione uma data">
+      </div>
+      <div id="horarios" class="horarios-container"></div>
+      <button onclick="mostrarPagina('inicial')">Voltar</button>
+    </section>
+
+    <!-- Página: Minhas Reservas -->
+    <section id="pagina-minhas-reservas" class="hidden">
+      <h1>Minhas Reservas</h1>
+      <div id="lista-reservas"></div>
+      <button onclick="mostrarPagina('inicial')">Voltar</button>
+    </section>
+
+    <!-- Página: Admin Visualização -->
+    <section id="pagina-admin" class="hidden">
+      <h1>Horários do Dia</h1>
+      <div class="calendar">
+        <input type="text" id="calendario-admin-input" placeholder="Selecione uma data">
+      </div>
+      <div id="horarios-admin" class="horarios-container"></div>
+      <button onclick="mostrarPagina('admin-criar')">Criar Horários</button>
+      <button onclick="mostrarPagina('inicial')">Sair</button>
+    </section>
+
+    <!-- Página: Admin Criar Horários -->
+    <section id="pagina-admin-criar" class="hidden">
+      <h1>Criar Horários</h1>
+      <div class="calendar">
+        <input type="text" id="data-criacao-input" placeholder="Selecione uma data">
+      </div>
+      <div id="botoes-horarios" class="horarios-container"></div>
+      <button onclick="marcarTodosHorarios()">Marcar Tudo</button>
+      <button onclick="salvarHorarios()">Salvar Horários</button>
+      <button onclick="mostrarPagina('admin')">Voltar</button>
+    </section>
+  </div>
+
+  <!-- Firebase SDK -->
+  <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-app.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-firestore.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/flatpickr"></script>
+  <script src="https://cdn.jsdelivr.net/npm/flatpickr/dist/l10n/pt.js"></script>
+
+  <script>
+    // Configuração do Firebase
+    const firebaseConfig = {
+  apiKey: "AIzaSyBnl2p5jBap04iXUdyL2Uko9dxGUy5Tpko",
+  authDomain: "agendamento-ae896.firebaseapp.com",
+  projectId: "agendamento-ae896",
+  storageBucket: "agendamento-ae896.firebasestorage.app",
+  messagingSenderId: "755996309787",
+  appId: "1:755996309787:web:3b4be84dd07512c829fbbe",
+  measurementId: "G-M0X48MH74Z"
+};
+
+    // Inicializa o Firebase
+    firebase.initializeApp(firebaseConfig);
+    const db = firebase.firestore();
+
+    // Variáveis globais
+    let selectedDate = null;
+    let selectedTime = null;
+    let currentUser = null;
+    let reservaAtual = null;
+    let modoAdmin = false;
+
+    // Inicialização
+    document.addEventListener('DOMContentLoaded', function() {
+      // Configura o localStorage para "lembrar" o usuário
+      currentUser = localStorage.getItem('agendamento_user') || generateUserId();
+      localStorage.setItem('agendamento_user', currentUser);
+      
+      // Inicializa os calendários
+      flatpickr("#calendario-input", {
+        locale: "pt",
+        minDate: "today",
+        dateFormat: "d/m/Y",
+        onChange: function(selectedDates, dateStr, instance) {
+          selectedDate = formatFirestoreDate(selectedDates[0]);
+          carregarHorariosDisponiveis();
+        }
+      });
+
+      flatpickr("#calendario-admin-input", {
+        locale: "pt",
+        minDate: "today",
+        dateFormat: "d/m/Y",
+        onChange: function(selectedDates, dateStr, instance) {
+          selectedDate = formatFirestoreDate(selectedDates[0]);
+          carregarHorariosAdmin();
+        }
+      });
+
+      flatpickr("#data-criacao-input", {
+        locale: "pt",
+        minDate: "today",
+        dateFormat: "d/m/Y",
+        onChange: function(selectedDates, dateStr, instance) {
+          selectedDate = formatFirestoreDate(selectedDates[0]);
+          criarBotoesHorarios();
+        }
+      });
+    });
+
+    // Funções de navegação
+    function mostrarPagina(pagina) {
+      document.getElementById('pagina-inicial').classList.add('hidden');
+      document.getElementById('pagina-horarios').classList.add('hidden');
+      document.getElementById('pagina-minhas-reservas').classList.add('hidden');
+      document.getElementById('pagina-admin').classList.add('hidden');
+      document.getElementById('pagina-admin-criar').classList.add('hidden');
+
+      if (pagina === 'inicial') {
+        document.getElementById('pagina-inicial').classList.remove('hidden');
+      } else if (pagina === 'horarios') {
+        document.getElementById('pagina-horarios').classList.remove('hidden');
+      } else if (pagina === 'minhas-reservas') {
+        document.getElementById('pagina-minhas-reservas').classList.remove('hidden');
+      } else if (pagina === 'admin') {
+        modoAdmin = true;
+        document.getElementById('pagina-admin').classList.remove('hidden');
+      } else if (pagina === 'admin-criar') {
+        document.getElementById('pagina-admin-criar').classList.remove('hidden');
+      }
+    }
+
+    function mostrarLoginAdmin() {
+      document.getElementById('admin-login').classList.remove('hidden');
+      document.body.insertAdjacentHTML('beforeend', '<div class="overlay"></div>');
+    }
+
+    function loginAdmin() {
+      const user = document.getElementById('admin-user').value;
+      const pass = document.getElementById('admin-pass').value;
+
+      if (user === 'admin' && pass === 'admin') {
+        fecharModal();
+        mostrarPagina('admin');
+      } else {
+        alert('Login inválido.');
+      }
+    }
+
+    function fecharModal() {
+      document.querySelectorAll('.modal').forEach(modal => {
+        modal.classList.add('hidden');
+      });
+      document.querySelectorAll('.overlay').forEach(overlay => {
+        overlay.remove();
+      });
+    }
+
+    // Funções de gerenciamento de usuário
+    function generateUserId() {
+      return 'user_' + Math.random().toString(36).substr(2, 9);
+    }
+
+    // Funções de formatação de data
+    function formatFirestoreDate(date) {
+      const d = new Date(date);
+      return d.toISOString().split('T')[0]; // Formato YYYY-MM-DD
+    }
+
+    function formatDisplayDate(dateStr) {
+      const [year, month, day] = dateStr.split('-');
+      return `${day}/${month}/${year}`;
+    }
+
+    function formatTimeDisplay(timeStr) {
+      return timeStr.replace(':00', 'h');
+    }
+
+    // Funções para horários disponíveis
+    async function carregarHorariosDisponiveis() {
+      if (!selectedDate) return;
+      
+      const horariosDiv = document.getElementById('horarios');
+      horariosDiv.innerHTML = '<p>Carregando...</p>';
+      
+      try {
+        const snapshot = await db.collection('horarios').doc(selectedDate).get();
+        
+        if (!snapshot.exists) {
+          horariosDiv.innerHTML = '<p>Nenhum horário disponível para esta data.</p>';
+          return;
+        }
+        
+        const horariosData = snapshot.data();
+        horariosDiv.innerHTML = '';
+        
+        Object.keys(horariosData).sort().forEach(time => {
+          const btn = document.createElement('button');
+          btn.className = 'horario-btn';
+          btn.textContent = formatTimeDisplay(time);
+          
+          if (horariosData[time].reservado) {
+            btn.textContent += ' (Reservado)';
+            btn.classList.add('disabled');
+            btn.onclick = () => alert('Este horário já está reservado.');
+          } else {
+            btn.onclick = () => abrirModalReserva(time);
+          }
+          
+          horariosDiv.appendChild(btn);
+        });
+      } catch (error) {
+        console.error("Erro ao carregar horários:", error);
+        horariosDiv.innerHTML = '<p>Erro ao carregar horários.</p>';
+      }
+    }
+
+    function abrirModalReserva(time) {
+      selectedTime = time;
+      document.getElementById('reserva-modal').classList.remove('hidden');
+      document.body.insertAdjacentHTML('beforeend', '<div class="overlay"></div>');
+    }
+
+    async function confirmarReserva() {
+      const nome = document.getElementById('cliente-nome').value;
+      const telefone = document.getElementById('cliente-telefone').value;
+      const pagamento = document.getElementById('forma-pagamento').value;
+      
+      if (!nome || !telefone || !pagamento) {
+        alert('Por favor, preencha todos os campos.');
+        return;
+      }
+      
+      try {
+        await db.collection('horarios').doc(selectedDate).update({
+          [selectedTime]: {
+            reservado: true,
+            clienteId: currentUser,
+            nome: nome,
+            telefone: telefone,
+            pagamento: pagamento
+          }
+        });
+        
+        fecharModal();
+        alert('Reserva confirmada com sucesso!');
+        carregarHorariosDisponiveis();
+      } catch (error) {
+        console.error("Erro ao confirmar reserva:", error);
+        alert('Erro ao confirmar reserva. Tente novamente.');
+      }
+    }
+
+    // Funções para minhas reservas
+    async function carregarMinhasReservas() {
+      mostrarPagina('minhas-reservas');
+      const listaReservas = document.getElementById('lista-reservas');
+      listaReservas.innerHTML = '<p>Carregando suas reservas...</p>';
+      
+      try {
+        const snapshot = await db.collection('horarios')
+          .where(`clienteId`, '==', currentUser)
+          .get();
+        
+        if (snapshot.empty) {
+          listaReservas.innerHTML = '<p>Você não tem reservas.</p>';
+          return;
+        }
+        
+        listaReservas.innerHTML = '';
+        snapshot.forEach(doc => {
+          const data = doc.data();
+          Object.keys(data).forEach(time => {
+            if (data[time].reservado && data[time].clienteId === currentUser) {
+              const reservaDiv = document.createElement('div');
+              reservaDiv.className = 'reserva-item';
+              reservaDiv.innerHTML = `
+                <p><strong>Data:</strong> ${formatDisplayDate(doc.id)}</p>
+                <p><strong>Horário:</strong> ${formatTimeDisplay(time)}</p>
+                <p><strong>Pagamento:</strong> ${data[time].pagamento}</p>
+              `;
+              reservaDiv.onclick = () => cancelarReserva(doc.id, time);
+              listaReservas.appendChild(reservaDiv);
+            }
+          });
+        });
+      } catch (error) {
+        console.error("Erro ao carregar reservas:", error);
+        listaReservas.innerHTML = '<p>Erro ao carregar suas reservas.</p>';
+      }
+    }
+
+    async function cancelarReserva(date, time) {
+      if (!confirm('Deseja realmente cancelar esta reserva?')) return;
+      
+      try {
+        await db.collection('horarios').doc(date).update({
+          [time]: {
+            reservado: false,
+            clienteId: null,
+            nome: null,
+            telefone: null,
+            pagamento: null
+          }
+        });
+        
+        alert('Reserva cancelada com sucesso!');
+        carregarMinhasReservas();
+      } catch (error) {
+        console.error("Erro ao cancelar reserva:", error);
+        alert('Erro ao cancelar reserva. Tente novamente.');
+      }
+    }
+
+    // Funções para admin
+    async function carregarHorariosAdmin() {
+      if (!selectedDate) return;
+      
+      const horariosDiv = document.getElementById('horarios-admin');
+      horariosDiv.innerHTML = '<p>Carregando...</p>';
+      
+      try {
+        const snapshot = await db.collection('horarios').doc(selectedDate).get();
+        
+        if (!snapshot.exists) {
+          horariosDiv.innerHTML = '<p>Nenhum horário cadastrado para esta data.</p>';
+          return;
+        }
+        
+        const horariosData = snapshot.data();
+        horariosDiv.innerHTML = '';
+        
+        Object.keys(horariosData).sort().forEach(time => {
+          const btn = document.createElement('button');
+          btn.className = 'horario-btn';
+          btn.textContent = formatTimeDisplay(time);
+          
+          if (horariosData[time].reservado) {
+            btn.textContent += ' (Reservado)';
+            btn.onclick = () => mostrarInfoReserva(horariosData[time]);
+          } else {
+            btn.textContent += ' (Disponível)';
+            btn.onclick = () => cancelarReservaAdmin(selectedDate, time);
+          }
+          
+          horariosDiv.appendChild(btn);
+        });
+      } catch (error) {
+        console.error("Erro ao carregar horários:", error);
+        horariosDiv.innerHTML = '<p>Erro ao carregar horários.</p>';
+      }
+    }
+
+    function mostrarInfoReserva(reserva) {
+      document.getElementById('info-nome').textContent = reserva.nome;
+      document.getElementById('info-telefone').textContent = reserva.telefone;
+      document.getElementById('info-pagamento').textContent = reserva.pagamento;
+      reservaAtual = reserva;
+      document.getElementById('info-reserva-modal').classList.remove('hidden');
+      document.body.insertAdjacentHTML('beforeend', '<div class="overlay"></div>');
+    }
+
+    async function cancelarReservaAdmin() {
+      if (!confirm('Deseja realmente cancelar esta reserva?')) return;
+      
+      try {
+        await db.collection('horarios').doc(selectedDate).update({
+          [selectedTime]: {
+            reservado: false,
+            clienteId: null,
+            nome: null,
+            telefone: null,
+            pagamento: null
+          }
+        });
+        
+        fecharModal();
+        alert('Reserva cancelada com sucesso!');
+        carregarHorariosAdmin();
+      } catch (error) {
+        console.error("Erro ao cancelar reserva:", error);
+        alert('Erro ao cancelar reserva. Tente novamente.');
+      }
+    }
+
+    // Funções para criar horários
+    function criarBotoesHorarios() {
+      if (!selectedDate) return;
+      
+      const botoesDiv = document.getElementById('botoes-horarios');
+      botoesDiv.innerHTML = '';
+      
+      // Horários da manhã (8h-11h)
+      for (let i = 8; i <= 11; i++) {
+        const btn = document.createElement('button');
+        btn.className = 'horario-btn';
+        btn.textContent = `${i}:00`;
+        btn.dataset.time = `${i}:00`;
+        btn.onclick = () => toggleHorarioSelecionado(btn);
+        botoesDiv.appendChild(btn);
+      }
+      
+      // Horários da tarde (13h-18h)
+      for (let i = 13; i <= 18; i++) {
+        const btn = document.createElement('button');
+        btn.className = 'horario-btn';
+        btn.textContent = `${i}:00`;
+        btn.dataset.time = `${i}:00`;
+        btn.onclick = () => toggleHorarioSelecionado(btn);
+        botoesDiv.appendChild(btn);
+      }
+    }
+
+    function toggleHorarioSelecionado(btn) {
+      btn.classList.toggle('disabled');
+      btn.dataset.selected = btn.classList.contains('disabled') ? 'false' : 'true';
+    }
+
+    function marcarTodosHorarios() {
+      document.querySelectorAll('#botoes-horarios .horario-btn').forEach(btn => {
+        btn.classList.remove('disabled');
+        btn.dataset.selected = 'true';
+      });
+    }
+
+    async function salvarHorarios() {
+      if (!selectedDate) {
+        alert('Selecione uma data primeiro.');
+        return;
+      }
+      
+      const horariosSelecionados = {};
+      document.querySelectorAll('#botoes-horarios .horario-btn[data-selected="true"]').forEach(btn => {
+        horariosSelecionados[btn.dataset.time] = {
+          reservado: false,
+          clienteId: null,
+          nome: null,
+          telefone: null,
+          pagamento: null
+        };
+      });
+      
+      if (Object.keys(horariosSelecionados).length === 0) {
+        alert('Selecione pelo menos um horário.');
+        return;
+      }
+      
+      try {
+        await db.collection('horarios').doc(selectedDate).set(horariosSelecionados, { merge: true });
+        alert('Horários salvos com sucesso!');
+        mostrarPagina('admin');
+      } catch (error) {
+        console.error("Erro ao salvar horários:", error);
+        alert('Erro ao salvar horários. Tente novamente.');
+      }
+    }
+  </script>
+</body>
+</html>
